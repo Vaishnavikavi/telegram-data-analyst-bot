@@ -9,7 +9,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-MODEL = "gemini-3-flash"
+MODEL = "gemini-flash-latest"
 
 app = FastAPI()
 
