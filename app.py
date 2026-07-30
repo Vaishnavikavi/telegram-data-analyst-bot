@@ -22,7 +22,7 @@ def home():
         for model in client.models.list():
             models.append({
                 "name": model.name,
-                "supported_methods": getattr(model, "supported_generation_methods", None)
+                "methods": getattr(model, "supported_generation_methods", [])
             })
 
         return models
