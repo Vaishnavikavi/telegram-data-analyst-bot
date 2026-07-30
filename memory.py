@@ -1,39 +1,90 @@
-from collections import defaultdict
+import os
+import json
 
-# Stores conversation history for each Telegram chat
-# Key = chat_id
-# Value = list of {"role": "...", "content": "..."}
-conversation_history = defaultdict(list)
 
-# Keep only the last few messages to avoid huge prompts
-MAX_HISTORY = 10
+MEMORY_FILE = "memory.json"
+
+
+def load_memory():
+
+    if not os.path.exists(MEMORY_FILE):
+        return {}
+
+    try:
+
+        with open(
+            MEMORY_FILE,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
+            return json.load(f)
+
+    except:
+
+        return {}
+
+
+
+def save_memory(memory):
+
+    with open(
+        MEMORY_FILE,
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        json.dump(
+            memory,
+            f,
+            indent=2
+        )
+
 
 
 def get_history(chat_id):
-    """
-    Return the conversation history for this user.
-    """
-    return conversation_history[chat_id]
+
+    memory = load_memory()
+
+    return memory.get(
+        str(chat_id),
+        []
+    )
 
 
-def add_message(chat_id, role, content):
-    """
-    Add a message to the conversation history.
-    """
-    conversation_history[chat_id].append(
+
+def add_message(
+        chat_id,
+        role,
+        content
+):
+
+    memory = load_memory()
+
+
+    key = str(chat_id)
+
+
+    if key not in memory:
+
+        memory[key] = []
+
+
+    memory[key].append(
         {
             "role": role,
-            "content": content,
+            "content": content
         }
     )
 
-    # Keep only the most recent messages
-    if len(conversation_history[chat_id]) > MAX_HISTORY:
-        conversation_history[chat_id] = conversation_history[chat_id][-MAX_HISTORY:]
+
+    #
+    # Keep only last 10 messages
+    #
+
+    memory[key] = memory[key][-10:]
 
 
-def clear_history(chat_id):
-    """
-    Clear the conversation for one user.
-    """
-    conversation_history[chat_id] = []
+    save_memory(
+        memory
+    )
