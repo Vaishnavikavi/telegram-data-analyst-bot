@@ -2,15 +2,14 @@ import os
 import requests
 
 from fastapi import FastAPI, Request
-from openai import OpenAI
+from google import genai
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+MODEL = "gemini-2.5-flash"
 
 app = FastAPI()
 
@@ -51,14 +50,19 @@ def send_message(chat_id, text):
         timeout=30,
     )
 
-    print(response.status_code)
-    print(response.text)
+    print("Telegram Status:", response.status_code)
+    print("Telegram Response:", response.text)
 
 
 def ask_llm(user_message: str):
-    response = client.responses.create(
-        model=MODEL,
-        input=user_message,
-    )
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=user_message,
+        )
 
-    return response.output_text
+        return response.text
+
+    except Exception as e:
+        print(e)
+        return f"Error: {e}"
