@@ -1,5 +1,4 @@
 import os
-import json
 import pandas as pd
 import requests
 
@@ -14,7 +13,6 @@ os.makedirs(
 )
 
 
-
 def download_file(url):
 
     response = requests.get(
@@ -24,9 +22,7 @@ def download_file(url):
 
     response.raise_for_status()
 
-
     filename = url.split("/")[-1]
-
 
     if "." not in filename:
         filename = "dataset.csv"
@@ -42,7 +38,6 @@ def download_file(url):
         path,
         "wb"
     ) as f:
-
         f.write(
             response.content
         )
@@ -52,137 +47,178 @@ def download_file(url):
 
 
 
-
 def load_dataset(path):
 
-    extension = (
-        path
-        .lower()
-        .split(".")[-1]
-    )
+    ext = path.lower().split(".")[-1]
 
 
-    if extension in [
-        "csv",
-        "txt"
-    ]:
-
-        return pd.read_csv(
-            path
-        )
+    if ext == "csv":
+        return pd.read_csv(path)
 
 
-    if extension in [
-        "xlsx",
-        "xls"
-    ]:
-
-        return pd.read_excel(
-            path
-        )
+    if ext in ["xls", "xlsx"]:
+        return pd.read_excel(path)
 
 
-    if extension == "json":
-
-        return pd.read_json(
-            path
-        )
+    if ext == "json":
+        return pd.read_json(path)
 
 
     raise Exception(
-        f"Unsupported file type: {extension}"
+        "Unsupported file format"
     )
 
 
 
+def analyze_columns(df):
 
-def dataframe_summary(df):
-
-    summary = {}
-
-
-    summary["rows"] = int(
-        len(df)
-    )
+    result = {}
 
 
-    summary["columns"] = list(
-        df.columns
-    )
+    for col in df.columns:
+
+        info = {}
+
+        info["dtype"] = str(
+            df[col].dtype
+        )
+
+        info["missing"] = int(
+            df[col].isna().sum()
+        )
 
 
-    summary["column_types"] = {
-        col:
-        str(dtype)
-        for col, dtype
-        in df.dtypes.items()
-    }
+        if df[col].dtype == "object":
+
+            info["unique_values"] = (
+                df[col]
+                .dropna()
+                .unique()
+                [:20]
+                .tolist()
+            )
+
+
+            info["top_values"] = (
+                df[col]
+                .value_counts()
+                .head(10)
+                .to_dict()
+            )
+
+
+        else:
+
+            info["min"] = float(
+                df[col].min()
+            )
+
+            info["max"] = float(
+                df[col].max()
+            )
+
+            info["mean"] = float(
+                df[col].mean()
+            )
+
+
+        result[col] = info
+
+
+    return result
 
 
 
-    summary["missing_values"] = {
-        col:
-        int(value)
-        for col, value
-        in df.isna()
-        .sum()
-        .items()
-    }
+def important_calculations(df):
+
+    output = {}
 
 
-
-    numerical = (
+    numeric_cols = (
         df
         .select_dtypes(
             include="number"
         )
+        .columns
+        .tolist()
     )
 
 
-    if len(numerical.columns):
+    output["numeric_columns"] = numeric_cols
 
-        summary["numeric_summary"] = (
-            numerical
-            .describe()
+
+
+    #
+    # Correlation
+    #
+
+    if len(numeric_cols) > 1:
+
+        output["correlation"] = (
+            df[numeric_cols]
+            .corr()
             .round(3)
             .to_dict()
         )
 
 
-    categorical = (
+
+    #
+    # Top values for categorical columns
+    #
+
+    categorical_cols = (
         df
         .select_dtypes(
             include="object"
         )
+        .columns
+        .tolist()
     )
 
 
-    categories = {}
+    groups = {}
 
 
-    for col in categorical.columns:
-
-        categories[col] = (
-            df[col]
-            .value_counts()
-            .head(10)
-            .to_dict()
-        )
+    for cat in categorical_cols:
 
 
-    summary["categorical_summary"] = categories
+        if len(df[cat].unique()) < 100:
+
+
+            for num in numeric_cols:
+
+
+                try:
+
+                    groups[
+                        f"{cat}_by_{num}"
+                    ] = (
+                        df
+                        .groupby(cat)[num]
+                        .mean()
+                        .sort_values(
+                            ascending=False
+                        )
+                        .head(10)
+                        .to_dict()
+                    )
+
+
+                except:
+
+                    pass
+
+
+    output["group_analysis"] = groups
+
+
+    return output
 
 
 
-    return summary
+def analyze_dataset(url, question):
 
-
-
-
-def analyze_dataset(
-        url,
-        question
-):
 
     path = download_file(
         url
@@ -194,38 +230,27 @@ def analyze_dataset(
     )
 
 
-    summary = dataframe_summary(
-        df
-    )
-
-
-    #
-    # Give Gemini a sample
-    #
-
-    sample = (
-        df
-        .head(5)
-        .to_dict(
-            orient="records"
-        )
-    )
-
-
     result = {
 
-        "question":
-            question,
+        "question": question,
 
-        "dataset_file":
-            path,
+        "rows": len(df),
 
-        "summary":
-            summary,
+        "columns": list(
+            df.columns
+        ),
+
+        "column_analysis":
+            analyze_columns(df),
+
+        "calculations":
+            important_calculations(df),
 
         "sample_rows":
-            sample
-
+            df.head(10)
+            .to_dict(
+                orient="records"
+            )
     }
 
 
