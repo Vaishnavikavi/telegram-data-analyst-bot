@@ -2,8 +2,6 @@ import os
 import pandas as pd
 import requests
 
-from io import BytesIO
-
 
 TEMP_DIR = "temp"
 
@@ -88,26 +86,12 @@ def analyze_columns(df):
         )
 
 
-        if df[col].dtype == "object":
+        #
+        # Numeric columns
+        #
 
-            info["unique_values"] = (
-                df[col]
-                .dropna()
-                .unique()
-                [:20]
-                .tolist()
-            )
+        if pd.api.types.is_numeric_dtype(df[col]):
 
-
-            info["top_values"] = (
-                df[col]
-                .value_counts()
-                .head(10)
-                .to_dict()
-            )
-
-
-        else:
 
             info["min"] = float(
                 df[col].min()
@@ -120,6 +104,67 @@ def analyze_columns(df):
             info["mean"] = float(
                 df[col].mean()
             )
+
+            info["median"] = float(
+                df[col].median()
+            )
+
+            info["std"] = float(
+                df[col].std()
+            )
+
+
+        #
+        # Try converting object columns
+        #
+
+        else:
+
+            converted = pd.to_numeric(
+                df[col],
+                errors="coerce"
+            )
+
+
+            if converted.notna().sum() > 0.8 * len(df):
+
+                info["dtype"] = "numeric"
+
+                info["min"] = float(
+                    converted.min()
+                )
+
+                info["max"] = float(
+                    converted.max()
+                )
+
+                info["mean"] = float(
+                    converted.mean()
+                )
+
+                info["median"] = float(
+                    converted.median()
+                )
+
+
+            else:
+
+                info["unique_values"] = (
+                    df[col]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+                    [:20]
+                    .tolist()
+                )
+
+
+                info["top_values"] = (
+                    df[col]
+                    .value_counts()
+                    .head(10)
+                    .to_dict()
+                )
 
 
         result[col] = info
@@ -134,14 +179,11 @@ def important_calculations(df):
     output = {}
 
 
-    numeric_cols = (
-        df
-        .select_dtypes(
-            include="number"
-        )
-        .columns
-        .tolist()
-    )
+    numeric_cols = [
+        col
+        for col in df.columns
+        if pd.api.types.is_numeric_dtype(df[col])
+    ]
 
 
     output["numeric_columns"] = numeric_cols
@@ -149,7 +191,7 @@ def important_calculations(df):
 
 
     #
-    # Correlation
+    # Correlations
     #
 
     if len(numeric_cols) > 1:
@@ -164,17 +206,17 @@ def important_calculations(df):
 
 
     #
-    # Top values for categorical columns
+    # Group analysis
     #
 
-    categorical_cols = (
-        df
-        .select_dtypes(
-            include="object"
+    categorical_cols = [
+        col
+        for col in df.columns
+        if (
+            df[col].dtype == "object"
+            or str(df[col].dtype).startswith("category")
         )
-        .columns
-        .tolist()
-    )
+    ]
 
 
     groups = {}
@@ -183,7 +225,7 @@ def important_calculations(df):
     for cat in categorical_cols:
 
 
-        if len(df[cat].unique()) < 100:
+        if df[cat].nunique() <= 100:
 
 
             for num in numeric_cols:
@@ -192,8 +234,9 @@ def important_calculations(df):
                 try:
 
                     groups[
-                        f"{cat}_by_{num}"
+                        f"{cat}_average_{num}"
                     ] = (
+
                         df
                         .groupby(cat)[num]
                         .mean()
@@ -202,12 +245,14 @@ def important_calculations(df):
                         )
                         .head(10)
                         .to_dict()
+
                     )
 
 
-                except:
+                except Exception:
 
-                    pass
+                    continue
+
 
 
     output["group_analysis"] = groups
@@ -234,7 +279,9 @@ def analyze_dataset(url, question):
 
         "question": question,
 
-        "rows": len(df),
+        "rows": int(
+            len(df)
+        ),
 
         "columns": list(
             df.columns
