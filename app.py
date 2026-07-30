@@ -7,7 +7,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 app = FastAPI()
 
+from openai import OpenAI
+import os
 
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 @app.get("/")
 def home():
     return {"status": "running"}
