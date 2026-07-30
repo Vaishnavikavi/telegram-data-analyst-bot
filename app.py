@@ -17,6 +17,16 @@ def home():
         "status": "running"
     }
 
+@app.get("/logs/run.jsonl")
+def get_log():
+
+    if not os.path.exists("logs/run.jsonl"):
+        return {"error": "No log available"}
+
+    return FileResponse(
+        "logs/run.jsonl",
+        media_type="application/json"
+    )
 
 @app.post("/webhook")
 async def webhook(request: Request):
