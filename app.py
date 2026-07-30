@@ -16,7 +16,19 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"status": "running"}
+    models = []
+
+    try:
+        for model in client.models.list():
+            models.append({
+                "name": model.name,
+                "supported_methods": getattr(model, "supported_generation_methods", None)
+            })
+
+        return models
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/webhook")
