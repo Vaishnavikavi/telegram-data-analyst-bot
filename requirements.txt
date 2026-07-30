@@ -2,7 +2,7 @@ fastapi
 uvicorn
 requests
 python-dotenv
-google-genai
+google-genai==1.30.0
 pandas
 numpy
 httpx
