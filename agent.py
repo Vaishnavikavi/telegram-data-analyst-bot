@@ -16,7 +16,7 @@ client = genai.Client(
 
 MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-2.5-flash"
+    "gemini-flash-latest"
 )
 
 
