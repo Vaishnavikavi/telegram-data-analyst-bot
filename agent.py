@@ -206,8 +206,10 @@ def process_message(chat_id, text):
             answer = json.dumps(
                 {
                     "answer": answer,
-                    "log_url":
-                    "/logs/run.jsonl"
+                    "log_url": os.getenv(
+                        "PUBLIC_LOG_URL",
+                        "/logs/run.jsonl"
+                        )
                 }
             )
 
@@ -252,7 +254,9 @@ def process_message(chat_id, text):
             {
                 "answer":
                     f"Agent error: {str(e)}",
-                "log_url":
+                "log_url": os.getenv(
+                    "PUBLIC_LOG_URL",
                     "/logs/run.jsonl"
+                )
             }
         )
