@@ -72,7 +72,6 @@ def ask_llm(user_message: str):
             model=MODEL,
             contents=user_message,
         )
-
         return response.text
 
     except Exception as e:
