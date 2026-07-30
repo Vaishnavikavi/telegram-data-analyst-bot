@@ -20,28 +20,33 @@ MODEL = os.getenv(
 )
 
 
+LOG_URL = os.getenv(
+    "PUBLIC_LOG_URL",
+    "https://telegram-data-analyst-bot-yl4v.onrender.com/logs/run.jsonl"
+)
+
+
 SYSTEM_PROMPT = """
 
 You are a data analyst AI agent.
 
-Your job is to answer data analysis questions.
+Your job is to answer the user's data analysis question.
 
 Rules:
 
-1. The user may provide a dataset URL.
-2. If a dataset URL is provided, analyze the data.
-3. Use Python/pandas calculations whenever possible.
-4. Do not guess numerical answers.
-5. The final answer must be ONLY one JSON object.
+1. If the user provides a dataset URL, analyze the dataset.
+2. Use calculations from the dataset. Do not guess.
+3. Answer exactly what the user asks.
+4. Final response must be ONLY valid JSON.
 
-The JSON format must be:
+Required format:
 
 {
  "answer": <answer requested by user>,
- "log_url": "<public log url>"
+ "log_url": "PUBLIC_LOG_URL"
 }
 
-Never add markdown.
+Never use markdown.
 Never add explanations outside JSON.
 
 """
@@ -58,12 +63,7 @@ def extract_urls(text):
 
 def clean_json(text):
 
-    """
-    Remove markdown if Gemini adds it.
-    """
-
     text = text.strip()
-
 
     if text.startswith("```"):
 
@@ -74,7 +74,6 @@ def clean_json(text):
             .strip()
         )
 
-
     return text
 
 
@@ -82,7 +81,6 @@ def clean_json(text):
 def process_message(chat_id, text):
 
     start_log(chat_id)
-
 
     try:
 
@@ -106,10 +104,7 @@ def process_message(chat_id, text):
 
         urls = extract_urls(text)
 
-
-
         analysis_context = ""
-
 
 
         if urls:
@@ -121,7 +116,6 @@ def process_message(chat_id, text):
                 }
             )
 
-
             try:
 
                 result = analyze_dataset(
@@ -131,7 +125,7 @@ def process_message(chat_id, text):
 
 
                 analysis_context = (
-                    "\nDataset analysis result:\n"
+                    "\nDataset analysis:\n"
                     +
                     json.dumps(result)
                 )
@@ -154,9 +148,7 @@ def process_message(chat_id, text):
                 )
 
 
-
         prompt = SYSTEM_PROMPT
-
 
 
         for item in history:
@@ -185,34 +177,50 @@ def process_message(chat_id, text):
         )
 
 
-        answer = clean_json(
+        raw_answer = clean_json(
             response.text
         )
 
 
-
         #
-        # If Gemini forgot JSON,
-        # wrap it safely
+        # Force final JSON format
         #
 
         try:
 
-            json.loads(answer)
+            parsed = json.loads(
+                raw_answer
+            )
+
+
+            if isinstance(parsed, dict) and "answer" in parsed:
+
+                final_answer = {
+                    "answer": parsed["answer"],
+                    "log_url": LOG_URL
+                }
+
+            else:
+
+                final_answer = {
+                    "answer": parsed,
+                    "log_url": LOG_URL
+                }
 
 
         except:
 
-            answer = json.dumps(
-                {
-                    "answer": answer,
-                    "log_url": os.getenv(
-                        "PUBLIC_LOG_URL",
-                        "/logs/run.jsonl"
-                        )
-                }
-            )
+            final_answer = {
+                "answer": raw_answer,
+                "log_url": LOG_URL
+            }
 
+
+
+        answer = json.dumps(
+            final_answer,
+            ensure_ascii=False
+        )
 
 
         add_message(
@@ -252,11 +260,7 @@ def process_message(chat_id, text):
 
         return json.dumps(
             {
-                "answer":
-                    f"Agent error: {str(e)}",
-                "log_url": os.getenv(
-                    "PUBLIC_LOG_URL",
-                    "/logs/run.jsonl"
-                )
+                "answer": f"Agent error: {str(e)}",
+                "log_url": LOG_URL
             }
         )
