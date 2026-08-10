@@ -9,3 +9,7 @@ httpx
 openpyxl
 beautifulsoup4
 lxml
+
+
+pydantic
+cryptography
